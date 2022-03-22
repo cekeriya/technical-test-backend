@@ -27,16 +27,14 @@ public class WalletController {
 	}
 
 	@GetMapping("/{uuid}")
-	@RequestMapping()
 	public ResponseEntity getWallet(@PathVariable @NotBlank String uuid) {
 		Optional<Wallet> opt = walletService.findByUuid(uuid);
 
 		if (opt.isPresent()) {
-			return new ResponseEntity(walletMapper.toWalletGetDto(walletService.findByUuid(uuid).get()), HttpStatus.OK);
+			return new ResponseEntity(walletMapper.toWalletGetDto(opt.get()), HttpStatus.OK);
 		} else {
 			return new ResponseEntity("Wallet not found", HttpStatus.NOT_FOUND);
 		}
-
 	}
 
 	@GetMapping
@@ -45,7 +43,7 @@ public class WalletController {
 	}
 
 	@PostMapping
-	public ResponseEntity<?> createWallet(@RequestBody @Valid WalletCreateDto walletCreateDto) {
+	public ResponseEntity createWallet(@RequestBody @Valid WalletCreateDto walletCreateDto) {
 		walletService.save(walletMapper.toWallet(walletCreateDto));
 		return new ResponseEntity(HttpStatus.CREATED);
 	}
