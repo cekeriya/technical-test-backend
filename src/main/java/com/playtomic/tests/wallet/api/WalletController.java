@@ -56,6 +56,6 @@ public class WalletController {
 	@PostMapping("/{uuid}/charge")
 	public ResponseEntity charge(@RequestBody @Valid ChargeRequestDto chargeRequestDto, @PathVariable @NotBlank UUID uuid) {
 		walletService.charge(chargeRequestDto, uuid);
-		return new ResponseEntity(HttpStatus.CREATED);
+		return new ResponseEntity(HttpStatus.OK);
 	}
 }

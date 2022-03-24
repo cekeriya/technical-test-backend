@@ -1,5 +1,6 @@
 package com.playtomic.tests.wallet.service;
 
+import com.playtomic.tests.wallet.cache.LockService;
 import com.playtomic.tests.wallet.dto.ChargeRequestDto;
 import com.playtomic.tests.wallet.dto.ChargeResponse;
 import com.playtomic.tests.wallet.dto.RefundResponse;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
 
+import javax.transaction.Transactional;
 import javax.validation.constraints.NotBlank;
 import java.util.List;
 import java.util.Optional;
@@ -27,11 +29,13 @@ public class WalletService {
 	private final WalletRepository walletRepository;
 	private final StripeService stripeService;
 	private final PaymentService paymentService;
+	private final LockService lockService;
 
-	public WalletService(WalletRepository walletRepository, StripeService stripeService, PaymentService paymentService) {
+	public WalletService(WalletRepository walletRepository, StripeService stripeService, PaymentService paymentService, LockService lockService) {
 		this.walletRepository = walletRepository;
 		this.stripeService = stripeService;
 		this.paymentService = paymentService;
+		this.lockService = lockService;
 	}
 
 	public void save(Wallet wallet) {
@@ -54,6 +58,7 @@ public class WalletService {
 	 * @throws StripeServiceException if any error occurred during strip api calls
 	 * @throws WalletException        if specified wallet can not be found
 	 */
+	@Transactional
 	public void charge(ChargeRequestDto chargeRequestDto, @NotBlank UUID walletUuid) throws StripeServiceException, WalletException {
 		Optional<Wallet> opt = walletRepository.findByUuid(walletUuid);
 
@@ -68,88 +73,101 @@ public class WalletService {
 			throw new WalletException(WALLET_DOES_NOT_HAVE_ENOUGH_BALANCE.getMessage());
 		}
 
-		log.info("Wallet found and payment process will be start");
+		if (lockService.isLock(walletUuid.toString())) {
+			log.info("Payment process stopped because there is an active payment process");
+			throw new WalletException(ACTIVE_PAYMENT_PROCESS.getMessage());
+		}
 
-		// TODO: 23.03.2022 add lock before charge started
+		log.info("Payment process will be start for Wallet : " + walletUuid);
 
-		ChargeResponse chargeResponse = stripeService.charge(chargeRequestDto.getCreditCardNumber(), chargeRequestDto.getAmount());
-		// TODO: 23.03.2022 if any exception occurred after redis lock, do not forget to release lock
+		// lock before charging start
+		lockService.lock(wallet.getUuid().toString());
 
-		if (chargeResponse != null && StringUtils.hasText(chargeResponse.getId())
-					&& chargeRequestDto.getAmount().equals(chargeResponse.getAmount())) {
+		try {
+			ChargeResponse chargeResponse = stripeService.charge(chargeRequestDto.getCreditCardNumber(), chargeRequestDto.getAmount());
 
-			log.info("Payment performed successfully. Payment id : " + chargeResponse.getId());
+			if (chargeResponse != null && StringUtils.hasText(chargeResponse.getId())
+						&& chargeRequestDto.getAmount().equals(chargeResponse.getAmount())) {
 
-			// save charge payment
-			Payment payment = Payment.builder()
-									  .refund(false)
-									  .amount(chargeResponse.getAmount())
-									  .paymentId(chargeResponse.getId())
-									  .wallet(wallet)
-									  .build();
+				log.info("Payment performed successfully for Wallet : " + walletUuid + " Payment id : " + chargeResponse.getId());
 
-			paymentService.save(payment);
+				// save charge payment
+				Payment payment = Payment.builder()
+										  .refund(false)
+										  .amount(chargeResponse.getAmount())
+										  .paymentId(chargeResponse.getId())
+										  .wallet(wallet)
+										  .build();
 
-			// decrease and update wallet balance
-			wallet.setBalance(wallet.getBalance().subtract(chargeRequestDto.getAmount()));
-			walletRepository.save(wallet);
+				paymentService.save(payment);
 
-			// TODO: 24.03.2022 release redis lock
-		} else {
-			// TODO: 23.03.2022 error scenario
+				// decrease and update wallet balance
+				wallet.setBalance(wallet.getBalance().subtract(chargeRequestDto.getAmount()));
+				walletRepository.save(wallet);
+			} else {
+				log.info("An error occurred during payment process, Wallet : " + walletUuid);
+				throw new WalletException(PAYMENT_PROCESS_ERROR.getMessage());
+			}
+		} finally {
+			lockService.unlock(wallet.getUuid().toString());
 		}
 	}
 
 	/**
 	 * Perform refund for specified payment
 	 *
-	 * @param uuid charge payment uuid
+	 * @param paymentUuid charge payment uuid
 	 * @throws StripeServiceException if any error occurred during strip api calls
 	 * @throws WalletException        if specified wallet can not be found
 	 */
-	public void refund(UUID uuid) throws StripeServiceException, WalletException {
-		Optional<Payment> opt = paymentService.findByUuid(uuid);
+	@Transactional
+	public void refund(UUID paymentUuid) throws StripeServiceException, WalletException {
+		Optional<Payment> opt = paymentService.findByUuid(paymentUuid);
 
 		if (!opt.isPresent()) {
 			throw new WalletException(PAYMENT_NOT_FOUND.getMessage());
 		}
 
-		// TODO: 23.03.2022 add lock before charge started
+		if (lockService.isLock(paymentUuid.toString())) {
+			log.info("refund process stopped because there is an active refund process");
+			throw new WalletException(ACTIVE_PAYMENT_PROCESS.getMessage());
+		}
+
+		log.info("Refund process will be start for Payment : " + paymentUuid);
 
 		Payment chargePayment = opt.get();
 		ResponseEntity<RefundResponse> response;
 		try {
 			response = stripeService.refund(chargePayment.getPaymentId());
+
+			if (response != null && response.getBody() != null && HttpStatus.OK == response.getStatusCode()) {
+				RefundResponse refundResponse = response.getBody();
+				log.info("Refund performed successfully. Payment id : " + refundResponse.getPaymentId());
+
+				Wallet wallet = chargePayment.getWallet();
+
+				// save refund payment
+				Payment refundPayment = Payment.builder()
+												.refund(true)
+												.amount(refundResponse.getAmount())
+												.paymentId(refundResponse.getPaymentId())
+												.wallet(wallet)
+												.build();
+
+				paymentService.save(refundPayment);
+
+				// increase and update wallet balance
+				wallet.setBalance(wallet.getBalance().add(refundPayment.getAmount()));
+				walletRepository.save(wallet);
+			} else {
+				log.info("An error occurred during refund process, Payment : " + paymentUuid);
+				throw new WalletException(REFUND_PROCESS_ERROR.getMessage());
+			}
 		} catch (HttpClientErrorException e) {
 			log.error("Payment not found for refund on stripe service");
-			throw e;
+			throw new WalletException(NOT_REFUNDABLE_PAYMENT.getMessage());
 		} finally {
-			// TODO: 23.03.2022 release redis lock
+			lockService.unlock(paymentUuid.toString());
 		}
-
-		if (response != null && response.getBody() != null && HttpStatus.OK == response.getStatusCode()) {
-			RefundResponse refundResponse = response.getBody();
-			log.info("Refund performed successfully. Payment id : " + refundResponse.getPaymentId());
-
-			Wallet wallet = chargePayment.getWallet();
-
-			// save refund payment
-			Payment refundPayment = Payment.builder()
-											.refund(true)
-											.amount(refundResponse.getAmount())
-											.paymentId(refundResponse.getPaymentId())
-											.wallet(wallet)
-											.build();
-
-			paymentService.save(refundPayment);
-
-			// increase and update wallet balance
-			wallet.setBalance(wallet.getBalance().add(refundPayment.getAmount()));
-			walletRepository.save(wallet);
-		} else {
-			// TODO: 23.03.2022 error scenario
-		}
-
-		// TODO: 23.03.2022 if any exception occurred after redis lock, do not forget to release lock
 	}
 }
