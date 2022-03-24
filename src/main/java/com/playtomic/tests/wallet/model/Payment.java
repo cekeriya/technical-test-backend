@@ -1,10 +1,10 @@
 package com.playtomic.tests.wallet.model;
 
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.*;
 
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import javax.persistence.*;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -16,8 +16,8 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "wallet")
-public class Wallet {
+@Table(name = "payment")
+public class Payment {
 	@Id
 	@GeneratedValue(generator = "UUID")
 	@GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
@@ -25,7 +25,10 @@ public class Wallet {
 	private UUID uuid;
 
 	@Column(nullable = false, columnDefinition = "DECIMAL(7,2)")
-	private BigDecimal balance = BigDecimal.ZERO;
+	private BigDecimal amount = BigDecimal.ZERO;
+
+	@Builder.Default
+	private Boolean refund = false;
 
 	@CreationTimestamp
 	@Temporal(TemporalType.TIMESTAMP)
@@ -35,7 +38,11 @@ public class Wallet {
 	@Temporal(TemporalType.TIMESTAMP)
 	private Date lastModifiedDate;
 
-	@Builder.Default
-	private Boolean enable = true;
+	@Column(length = 36, columnDefinition = "varchar", updatable = false, nullable = false)
+	private String paymentId;
 
+	@ManyToOne
+	@JoinColumn(name = "wallet", nullable = false)
+	@OnDelete(action = OnDeleteAction.CASCADE)
+	private Wallet wallet;
 }

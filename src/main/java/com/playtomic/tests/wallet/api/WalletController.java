@@ -1,6 +1,9 @@
 package com.playtomic.tests.wallet.api;
 
+import com.playtomic.tests.wallet.dto.ChargeRequestDto;
 import com.playtomic.tests.wallet.dto.WalletCreateDto;
+import com.playtomic.tests.wallet.exception.ErrorMessage;
+import com.playtomic.tests.wallet.exception.ErrorResponse;
 import com.playtomic.tests.wallet.mapper.WalletMapper;
 import com.playtomic.tests.wallet.model.Wallet;
 import com.playtomic.tests.wallet.service.WalletService;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -27,13 +31,14 @@ public class WalletController {
 	}
 
 	@GetMapping("/{uuid}")
-	public ResponseEntity getWallet(@PathVariable @NotBlank String uuid) {
+	public ResponseEntity getWallet(@PathVariable @NotBlank UUID uuid) {
 		Optional<Wallet> opt = walletService.findByUuid(uuid);
 
 		if (opt.isPresent()) {
 			return new ResponseEntity(walletMapper.toWalletGetDto(opt.get()), HttpStatus.OK);
 		} else {
-			return new ResponseEntity("Wallet not found", HttpStatus.NOT_FOUND);
+			HttpStatus status = HttpStatus.NOT_FOUND;
+			return new ResponseEntity<>(new ErrorResponse(status.name(), status.value(), ErrorMessage.WALLET_NOT_FOUND.getMessage()), status);
 		}
 	}
 
@@ -45,6 +50,12 @@ public class WalletController {
 	@PostMapping
 	public ResponseEntity createWallet(@RequestBody @Valid WalletCreateDto walletCreateDto) {
 		walletService.save(walletMapper.toWallet(walletCreateDto));
+		return new ResponseEntity(HttpStatus.CREATED);
+	}
+
+	@PostMapping("/{uuid}/charge")
+	public ResponseEntity charge(@RequestBody @Valid ChargeRequestDto chargeRequestDto, @PathVariable @NotBlank UUID uuid) {
+		walletService.charge(chargeRequestDto, uuid);
 		return new ResponseEntity(HttpStatus.CREATED);
 	}
 }
