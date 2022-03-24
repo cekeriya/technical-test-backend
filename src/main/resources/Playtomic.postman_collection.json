@@ -1,0 +1,185 @@
+{
+	"info": {
+		"_postman_id": "573b6201-1085-4a3f-b15a-0ff16689a95a",
+		"name": "Playtomic",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get Wallets",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var walletUuid = pm.response.json()[0].uuid;",
+							"pm.globals.set(\"walletUuid\", walletUuid);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:8090/wallets",
+					"host": [
+						"localhost"
+					],
+					"port": "8090",
+					"path": [
+						"wallets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Wallet",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:8090/wallets/3da1a255-2f64-4fa3-a8f1-c629433db728",
+					"host": [
+						"localhost"
+					],
+					"port": "8090",
+					"path": [
+						"wallets",
+						"3da1a255-2f64-4fa3-a8f1-c629433db728"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Wallet",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"balance\": 100,\n    \"enable\": true\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8090/wallets",
+					"host": [
+						"localhost"
+					],
+					"port": "8090",
+					"path": [
+						"wallets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Charge",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"creditCardNumber\": \"5555555555554444\",\n    \"amount\": 10\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8090/wallets/{{walletUuid}}/charge",
+					"host": [
+						"localhost"
+					],
+					"port": "8090",
+					"path": [
+						"wallets",
+						"{{walletUuid}}",
+						"charge"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Refund Payment",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"creditCardNumber\": \"5555555555554444\",\n    \"amount\": 10\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8090/payments/{{paymentUuid}}/refund",
+					"host": [
+						"localhost"
+					],
+					"port": "8090",
+					"path": [
+						"payments",
+						"{{paymentUuid}}",
+						"refund"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Payments",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var paymentUuid = pm.response.json()[0].uuid;",
+							"pm.globals.set(\"paymentUuid\", paymentUuid);"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"creditCardNumber\": \"5555555555554444\",\n    \"amount\": 10\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8090/payments",
+					"host": [
+						"localhost"
+					],
+					"port": "8090",
+					"path": [
+						"payments"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
