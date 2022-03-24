@@ -4,8 +4,6 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 
-import java.util.Date;
-
 @Getter
 @Setter
 public class ErrorResponse {
@@ -18,11 +16,7 @@ public class ErrorResponse {
 
 	private String message;
 
-	@NonNull
-	private Date timestamp;
-
 	public ErrorResponse(String status, int code, String message) {
-		this.timestamp = new Date();
 		this.status = status;
 		this.code = code;
 		this.message = message;

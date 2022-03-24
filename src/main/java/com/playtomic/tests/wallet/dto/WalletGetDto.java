@@ -1,5 +1,6 @@
 package com.playtomic.tests.wallet.dto;
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,6 +10,7 @@ import java.util.UUID;
 
 @Getter
 @Setter
+@Builder
 public class WalletGetDto {
 	private UUID uuid;
 	private BigDecimal balance;
