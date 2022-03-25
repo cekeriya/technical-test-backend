@@ -135,6 +135,9 @@ public class WalletService {
 
 		log.info("Refund process will be start for Payment : " + paymentUuid);
 
+		// lock before charging start
+		lockService.lock(paymentUuid.toString());
+
 		Payment chargePayment = opt.get();
 		ResponseEntity<RefundResponse> response;
 		try {
