@@ -49,8 +49,8 @@ public class WalletController {
 
 	@PostMapping
 	public ResponseEntity createWallet(@RequestBody @Valid WalletCreateDto walletCreateDto) {
-		walletService.save(walletMapper.toWallet(walletCreateDto));
-		return new ResponseEntity(HttpStatus.CREATED);
+		Wallet wallet = walletService.save(walletMapper.toWallet(walletCreateDto));
+		return new ResponseEntity(walletMapper.toWalletGetDto(wallet), HttpStatus.CREATED);
 	}
 
 	@PostMapping("/{uuid}/charge")

@@ -1,6 +1,8 @@
 package com.playtomic.tests.wallet.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.playtomic.tests.wallet.dto.ChargeRequestDto;
+import com.playtomic.tests.wallet.dto.WalletCreateDto;
 import com.playtomic.tests.wallet.dto.WalletGetDto;
 import com.playtomic.tests.wallet.exception.ErrorResponse;
 import com.playtomic.tests.wallet.mapper.WalletMapper;
@@ -21,7 +23,10 @@ import java.math.BigDecimal;
 import java.util.*;
 
 import static com.playtomic.tests.wallet.exception.ErrorMessage.WALLET_NOT_FOUND;
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -68,7 +73,6 @@ class WalletControllerTest {
 	void getWallet_walletNotFound() throws Exception {
 		// prepare
 		UUID notFoundUuid = UUID.randomUUID();
-
 		ErrorResponse errorResponse = createWalletNotFoundErrorResponseObject();
 
 		// mock
@@ -99,12 +103,105 @@ class WalletControllerTest {
 				.andExpect(content().json(objectMapper.writeValueAsString(walletGetDtoList)));
 	}
 
+
 	@Test
-	void createWallet() {
+	void getWallet_uuid_validationError() throws Exception {
+		// test
+		mockMvc.perform(get("/wallets/" + " ").accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().string(containsString("uuid")));
 	}
 
 	@Test
-	void charge() {
+	void createWallet_success() throws Exception {
+		// prepare
+		Wallet wallet = createWalletObject();
+		WalletGetDto walletGetDto = createWalledGetDtoObject(wallet);
+		WalletCreateDto walletCreateDto = createWalletCreateDtoObject(wallet);
+
+		// mock
+		Mockito.when(mockWalletService.save(any(Wallet.class))).thenReturn(wallet);
+		Mockito.when(mockWalletMapper.toWalletGetDto(any(Wallet.class))).thenReturn(walletGetDto);
+		Mockito.when(mockWalletMapper.toWallet(any(WalletCreateDto.class))).thenReturn(wallet);
+
+		// test
+		mockMvc.perform(post("/wallets")
+								.accept(MediaType.APPLICATION_JSON)
+								.contentType(MediaType.APPLICATION_JSON)
+								.content(objectMapper.writeValueAsString(walletCreateDto)))
+				.andExpect(status().isCreated())
+				.andExpect(content().json(objectMapper.writeValueAsString(walletGetDto)));
+	}
+
+	@Test
+	void createWallet_balance_validationError() throws Exception {
+		// prepare
+		Wallet wallet = createWalletObject();
+		WalletCreateDto walletCreateDto = createWalletCreateDtoObject(wallet);
+		walletCreateDto.setBalance(new BigDecimal(-100));
+
+		// test
+		mockMvc.perform(post("/wallets")
+								.accept(MediaType.APPLICATION_JSON)
+								.contentType(MediaType.APPLICATION_JSON)
+								.content(objectMapper.writeValueAsString(walletCreateDto)))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().string(containsString("balance")));
+	}
+
+	@Test
+	void charge_success() throws Exception {
+		// prepare
+		UUID walletUuid = UUID.randomUUID();
+		ChargeRequestDto chargeRequestDto = createChargeRequestDtoObject();
+
+		// mock
+		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class),any(UUID.class));
+
+		// test
+		mockMvc.perform(post("/wallets/" + walletUuid + "/charge")
+								.accept(MediaType.APPLICATION_JSON)
+								.contentType(MediaType.APPLICATION_JSON)
+								.content(objectMapper.writeValueAsString(chargeRequestDto)))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void charge_amount_validationError() throws Exception {
+		// prepare
+		UUID walletUuid = UUID.randomUUID();
+		ChargeRequestDto chargeRequestDto = createChargeRequestDtoObject();
+		chargeRequestDto.setAmount(new BigDecimal(-10));
+
+		// mock
+		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class),any(UUID.class));
+
+		// test
+		mockMvc.perform(post("/wallets/" + walletUuid + "/charge")
+								.accept(MediaType.APPLICATION_JSON)
+								.contentType(MediaType.APPLICATION_JSON)
+								.content(objectMapper.writeValueAsString(chargeRequestDto)))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().string(containsString("amount")));
+	}
+
+	@Test
+	void charge_creditCardNumber_validationError() throws Exception {
+		// prepare
+		UUID walletUuid = UUID.randomUUID();
+		ChargeRequestDto chargeRequestDto = createChargeRequestDtoObject();
+		chargeRequestDto.setCreditCardNumber("invalid_credit_card_number");
+
+		// mock
+		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class),any(UUID.class));
+
+		// test
+		mockMvc.perform(post("/wallets/" + walletUuid + "/charge")
+								.accept(MediaType.APPLICATION_JSON)
+								.contentType(MediaType.APPLICATION_JSON)
+								.content(objectMapper.writeValueAsString(chargeRequestDto)))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().string(containsString("creditCardNumber")));
 	}
 
 	private WalletGetDto createWalledGetDtoObject(Wallet wallet) {
@@ -124,6 +221,20 @@ class WalletControllerTest {
 					   .enable(false)
 					   .balance(new BigDecimal(100))
 					   .uuid(UUID.randomUUID())
+					   .build();
+	}
+
+	private WalletCreateDto createWalletCreateDtoObject(Wallet wallet) {
+		return WalletCreateDto.builder()
+					   .balance(wallet.getBalance())
+					   .enable(wallet.getEnable())
+					   .build();
+	}
+
+	private ChargeRequestDto createChargeRequestDtoObject() {
+		return ChargeRequestDto.builder()
+					   .creditCardNumber("5555555555554444")
+					   .amount(new BigDecimal(10))
 					   .build();
 	}
 

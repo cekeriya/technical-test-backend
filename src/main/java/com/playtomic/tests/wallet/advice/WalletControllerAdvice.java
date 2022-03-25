@@ -6,6 +6,7 @@ import com.playtomic.tests.wallet.service.StripeAmountTooSmallException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -40,17 +41,24 @@ public class WalletControllerAdvice {
 		return new ResponseEntity<>(new ErrorResponse(status.name(), status.value(), errors.toString()), status);
 	}
 
-	@ExceptionHandler(WalletException.class)
-	public ResponseEntity<ErrorResponse> handleWalletException(WalletException e) {
+	@ExceptionHandler(MissingPathVariableException.class)
+	public ResponseEntity<ErrorResponse> handleMissingPathVariableException(MissingPathVariableException ex) {
 		HttpStatus status = HttpStatus.BAD_REQUEST;
 
-		return new ResponseEntity<>(new ErrorResponse(status.name(), status.value(), e.getMessage()), status);
+		return new ResponseEntity<>(new ErrorResponse(status.name(), status.value(), ex.getMessage()), status);
+	}
+
+	@ExceptionHandler(WalletException.class)
+	public ResponseEntity<ErrorResponse> handleWalletException(WalletException ex) {
+		HttpStatus status = HttpStatus.BAD_REQUEST;
+
+		return new ResponseEntity<>(new ErrorResponse(status.name(), status.value(), ex.getMessage()), status);
 	}
 
 	@ExceptionHandler(StripeAmountTooSmallException.class)
-	public ResponseEntity<ErrorResponse> handleStripeAmountTooSmallException(StripeAmountTooSmallException e) {
+	public ResponseEntity<ErrorResponse> handleStripeAmountTooSmallException(StripeAmountTooSmallException ex) {
 		HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
 
-		return new ResponseEntity<>(new ErrorResponse(status.name(), status.value(), e.getMessage()), status);
+		return new ResponseEntity<>(new ErrorResponse(status.name(), status.value(), ex.getMessage()), status);
 	}
 }

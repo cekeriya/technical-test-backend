@@ -38,8 +38,8 @@ public class WalletService {
 		this.lockService = lockService;
 	}
 
-	public void save(Wallet wallet) {
-		walletRepository.save(wallet);
+	public Wallet save(Wallet wallet) {
+		return walletRepository.save(wallet);
 	}
 
 	public Optional<Wallet> findByUuid(UUID uuid) {
