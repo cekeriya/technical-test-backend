@@ -45,8 +45,17 @@ class WalletControllerTest {
 	@MockBean
 	private WalletMapper mockWalletMapper;
 
+	private Wallet wallet;
+	private WalletGetDto walletGetDto;
+	private WalletCreateDto walletCreateDto;
+	private ChargeRequestDto chargeRequestDto;
+
 	@BeforeEach
 	void setUp() {
+		this.wallet = createWalletObject();
+		this.walletGetDto = createWalledGetDtoObject(wallet);
+		this.walletCreateDto = createWalletCreateDtoObject(wallet);
+		this.chargeRequestDto = createChargeRequestDtoObject();
 	}
 
 	@AfterEach
@@ -55,10 +64,6 @@ class WalletControllerTest {
 
 	@Test
 	void getWallet_success() throws Exception {
-		// prepare
-		Wallet wallet = createWalletObject();
-		WalletGetDto walletGetDto = createWalledGetDtoObject(wallet);
-
 		// mock
 		Mockito.when(mockWalletService.findByUuid(walletGetDto.getUuid())).thenReturn(Optional.of(wallet));
 		Mockito.when(mockWalletMapper.toWalletGetDto(wallet)).thenReturn(walletGetDto);
@@ -73,7 +78,7 @@ class WalletControllerTest {
 	void getWallet_walletNotFound() throws Exception {
 		// prepare
 		UUID notFoundUuid = UUID.randomUUID();
-		ErrorResponse errorResponse = createWalletNotFoundErrorResponseObject();
+		ErrorResponse errorResponse = new ErrorResponse(HttpStatus.NOT_FOUND.name(), HttpStatus.NOT_FOUND.value(), WALLET_NOT_FOUND.getMessage());
 
 		// mock
 		Mockito.when(mockWalletService.findByUuid(notFoundUuid)).thenReturn(Optional.empty());
@@ -86,10 +91,6 @@ class WalletControllerTest {
 
 	@Test
 	void getWallets_success() throws Exception {
-		// prepare
-		Wallet wallet = createWalletObject();
-		WalletGetDto walletGetDto = createWalledGetDtoObject(wallet);
-
 		List<Wallet> walletList = Arrays.asList(wallet);
 		List<WalletGetDto> walletGetDtoList = Arrays.asList(walletGetDto);
 
@@ -114,11 +115,6 @@ class WalletControllerTest {
 
 	@Test
 	void createWallet_success() throws Exception {
-		// prepare
-		Wallet wallet = createWalletObject();
-		WalletGetDto walletGetDto = createWalledGetDtoObject(wallet);
-		WalletCreateDto walletCreateDto = createWalletCreateDtoObject(wallet);
-
 		// mock
 		Mockito.when(mockWalletService.save(any(Wallet.class))).thenReturn(wallet);
 		Mockito.when(mockWalletMapper.toWalletGetDto(any(Wallet.class))).thenReturn(walletGetDto);
@@ -136,8 +132,6 @@ class WalletControllerTest {
 	@Test
 	void createWallet_balance_validationError() throws Exception {
 		// prepare
-		Wallet wallet = createWalletObject();
-		WalletCreateDto walletCreateDto = createWalletCreateDtoObject(wallet);
 		walletCreateDto.setBalance(new BigDecimal(-100));
 
 		// test
@@ -153,10 +147,9 @@ class WalletControllerTest {
 	void charge_success() throws Exception {
 		// prepare
 		UUID walletUuid = UUID.randomUUID();
-		ChargeRequestDto chargeRequestDto = createChargeRequestDtoObject();
 
 		// mock
-		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class),any(UUID.class));
+		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class), any(UUID.class));
 
 		// test
 		mockMvc.perform(post("/wallets/" + walletUuid + "/charge")
@@ -174,7 +167,7 @@ class WalletControllerTest {
 		chargeRequestDto.setAmount(new BigDecimal(-10));
 
 		// mock
-		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class),any(UUID.class));
+		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class), any(UUID.class));
 
 		// test
 		mockMvc.perform(post("/wallets/" + walletUuid + "/charge")
@@ -193,7 +186,7 @@ class WalletControllerTest {
 		chargeRequestDto.setCreditCardNumber("invalid_credit_card_number");
 
 		// mock
-		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class),any(UUID.class));
+		Mockito.doNothing().when(mockWalletService).charge(any(ChargeRequestDto.class), any(UUID.class));
 
 		// test
 		mockMvc.perform(post("/wallets/" + walletUuid + "/charge")
@@ -236,9 +229,5 @@ class WalletControllerTest {
 					   .creditCardNumber("5555555555554444")
 					   .amount(new BigDecimal(10))
 					   .build();
-	}
-
-	private ErrorResponse createWalletNotFoundErrorResponseObject() {
-		return new ErrorResponse(HttpStatus.NOT_FOUND.name(), HttpStatus.NOT_FOUND.value(), WALLET_NOT_FOUND.getMessage());
 	}
 }
